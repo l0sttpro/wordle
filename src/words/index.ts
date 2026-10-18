@@ -20,10 +20,16 @@ export function getWords(lang: Language, length: number): WordPool {
     const cached = cache.get(key);
     if (cached) return cached;
 
-    const ok = (w: string) => w.length === length && /^[a-z]+$/.test(w);
     const list = lists[lang];
-    const answers = [...new Set(list.answers.map(normalize).filter(ok))];
-    const valid = new Set([...answers, ...list.allowed.map(normalize).filter(ok)]);
+    // Check the length first (cheap), then normalize only the words that survive.
+    const pick = (words: string[]) =>
+        words
+            .filter((w) => w.length === length)
+            .map(normalize)
+            .filter((w) => /^[a-z]+$/.test(w));
+
+    const answers = [...new Set(pick(list.answers))];
+    const valid = new Set([...answers, ...pick(list.allowed)]);
 
     const pool = { answers, valid };
     cache.set(key, pool);

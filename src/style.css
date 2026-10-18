@@ -171,6 +171,8 @@ select:hover, #btn-new:hover { border-color: var(--border-filled); }
   transition: opacity 0.15s, transform 0.15s;
 }
 
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+
 /* ---------- touch and selection ---------- */
 
 button, select { touch-action: manipulation; }
@@ -301,4 +303,4 @@ button, select { touch-action: manipulation; }
   border-color: var(--correct);
   color: #04130c;
 }
-.modal-actions button.primary:hover { filter: brightness(1.1); }#toast.show { opacity: 1; transform: translate(-50%, 0); }
+.modal-actions button.primary:hover { filter: brightness(1.1); }

@@ -14,7 +14,10 @@ function renderBoard(game: Game, b: number, revealRow: number): HTMLElement {
     const board = document.createElement("div");
     board.className = "board";
     const solvedAt = game.solvedAt[b];
-    if (solvedAt !== null) board.classList.add("solved");
+
+    if (game.boardCount > 1 && solvedAt !== null && solvedAt < game.guesses.length - 1) {
+        board.classList.add("solved");
+    }
 
     const len = game.settings.wordLength;
     const isActive = game.status === "playing" && solvedAt === null;

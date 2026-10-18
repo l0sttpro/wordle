@@ -9,12 +9,13 @@ const GH = "https://raw.githubusercontent.com";
 const URLS = {
     enCommon: `${GH}/first20hours/google-10000-english/master/google-10000-english-no-swears.txt`,
     enDict: `${GH}/dwyl/english-words/master/words_alpha.txt`,
+    enHunspell: `${GH}/LibreOffice/dictionaries/master/en/en_US.dic`,
     afFreq: `${GH}/hermitdave/FrequencyWords/master/content/2018/af/af_full.txt`,
     afDic: `${GH}/LibreOffice/dictionaries/master/af_ZA/af_ZA.dic`,
 };
 
-// Words you never want as a secret word (names, abbreviations, etc).
-const BLOCK = new Set(["ctrl", "intl", "bool", "allah", "hugo", "kirk", "laos", "ricky", "bhutan"]);
+// Extra words you never want as a secret word (abbreviations, slang, etc).
+const BLOCK = new Set(["ctrl", "intl", "bool", "gotta", "univ", "docs"]);
 
 // Strip diacritics and lowercase: "môre" -> "more".
 const norm = (w) => w.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -38,12 +39,35 @@ await mkdir(OUT, { recursive: true });
 // ---------- English ----------
 const enDict = lines(await get(URLS.enDict)).map(norm).filter(isWord);
 const enDictSet = new Set(enDict);
-const enAnswers = lines(await get(URLS.enCommon))
+
+// Proper nouns (names, countries, cities, brands) must not be secret words.
+// In the hunspell dictionary they are capitalised ("Todd", "Boston") while ordinary
+// words are lowercase. A word counts as a proper noun when its capitalised form
+// exists but no lowercase form does. For plurals we also check the singular, so
+// "banks" survives because "bank" is a lowercase word.
+const enRoots = lines(await get(URLS.enHunspell))
+    .slice(1) // first line is a count
+    .map((l) => l.split("/")[0]);
+const enLower = new Set(enRoots.filter((w) => w === w.toLowerCase()));
+const hasLowerForm = (w) =>
+    enLower.has(w) ||
+    (w.endsWith("s") && enLower.has(w.slice(0, -1))) ||
+    (w.endsWith("es") && enLower.has(w.slice(0, -2)));
+const enProper = new Set(
+    enRoots
+        .filter((w) => /^[A-Z][a-z]+$/.test(w))
+        .map((w) => w.toLowerCase())
+        .filter((w) => !hasLowerForm(w)),
+);
+
+const enCandidates = lines(await get(URLS.enCommon))
     .map(norm)
     .filter((w) => isWord(w) && enDictSet.has(w) && !BLOCK.has(w));
+const enAnswers = enCandidates.filter((w) => !enProper.has(w));
+console.log(`English: dropped ${enCandidates.length - enAnswers.length} proper nouns from answers`);
 
 await save("en-answers", enAnswers);
-await save("en-allowed", enDict);
+await save("en-allowed", enDict); // guesses stay generous, only secret words are filtered
 
 // ---------- Afrikaans ----------
 // Hunspell .dic lines look like "magasyn/E": the part before "/" is the root word.
