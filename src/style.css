@@ -1,0 +1,173 @@
+:root {
+  --bg: #0b0b0d;
+  --surface: #141418;
+  --border: #2a2a31;
+  --border-filled: #55555f;
+  --text: #ececf1;
+  --muted: #8a8a96;
+  --correct: #2f9e6a;
+  --present: #c9a227;
+  --absent: #1c1c22;
+  --key: #26262e;
+  --key-absent: #121215;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+#app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+header {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+h1 span { color: var(--correct); }
+
+#controls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+select, #btn-new {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+select:hover, #btn-new:hover { border-color: var(--border-filled); }
+
+#status {
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- boards ---------- */
+
+.boards { display: grid; gap: 20px 28px; justify-content: center; }
+
+.boards.wordle {
+  grid-template-columns: auto;
+  --tile: clamp(38px, calc((min(100vw, 460px) - 48px) / var(--len)), 62px);
+}
+.boards.quordle {
+  grid-template-columns: repeat(2, auto);
+  --tile: clamp(20px, calc((min(100vw, 900px) / 2 - 40px) / var(--len)), 38px);
+}
+
+.board { display: flex; flex-direction: column; gap: calc(var(--tile) * 0.1); }
+.board.solved { opacity: 0.55; }
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(var(--len), var(--tile));
+  gap: calc(var(--tile) * 0.1);
+}
+
+.tile {
+  width: var(--tile);
+  height: var(--tile);
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-size: calc(var(--tile) * 0.5);
+  font-weight: 600;
+  text-transform: uppercase;
+  background: var(--final, transparent);
+}
+.tile.filled { border-color: var(--border-filled); }
+
+.tile.correct { --final: var(--correct); border-color: var(--final); }
+.tile.present { --final: var(--present); border-color: var(--final); }
+.tile.absent  { --final: var(--absent);  border-color: var(--final); color: var(--muted); }
+
+.tile.reveal { animation: flip 0.55s ease both; }
+
+@keyframes flip {
+  0%   { transform: rotateX(0);    background: transparent; border-color: var(--border-filled); }
+  49%  { transform: rotateX(90deg); background: transparent; border-color: var(--border-filled); }
+  51%  { background: var(--final); border-color: var(--final); }
+  100% { transform: rotateX(0);    background: var(--final); border-color: var(--final); }
+}
+
+/* ---------- keyboard ---------- */
+
+#keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 500px;
+}
+.key-row { display: flex; justify-content: center; gap: 5px; }
+
+.key {
+  flex: 1;
+  max-width: 44px;
+  height: 52px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: var(--key);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.key.wide { flex: 1.6; max-width: 70px; font-size: 0.7rem; }
+.key:hover { filter: brightness(1.25); }
+
+/* ---------- toast ---------- */
+
+#toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translate(-50%, -8px);
+  background: var(--text);
+  color: var(--bg);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
