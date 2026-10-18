@@ -4,6 +4,7 @@ import { Game } from "./game/state";
 import { availableLengths, getWords } from "./words";
 import { renderBoards } from "./ui/board";
 import { renderKeyboard } from "./ui/keyboard";
+import { hideResult, isResultOpen, showResult } from "./ui/result";
 import type { GameModeName, Language, Settings } from "./types";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -12,10 +13,11 @@ app.innerHTML = `
     <h1>word<span>le</span></h1>
     <div id="controls"></div>
   </header>
-  <p id="status"></p>
+  <p id="status" aria-live="polite"></p>
   <main id="boards"></main>
   <div id="keyboard"></div>
-  <div id="toast"></div>
+  <div id="toast" role="status"></div>
+  <div id="modal" class="modal"></div>
 `;
 
 const controlsEl = document.querySelector<HTMLElement>("#controls")!;
@@ -23,6 +25,7 @@ const statusEl = document.querySelector<HTMLElement>("#status")!;
 const boardsEl = document.querySelector<HTMLElement>("#boards")!;
 const keysEl = document.querySelector<HTMLElement>("#keyboard")!;
 const toastEl = document.querySelector<HTMLElement>("#toast")!;
+const modalEl = document.querySelector<HTMLElement>("#modal")!;
 
 const settings: Settings = {
     language: "en",
@@ -32,6 +35,7 @@ const settings: Settings = {
 };
 
 let game: Game;
+let gameId = 0; // bumped on every new game so old timers can tell they are stale
 let busy = false; // true while the tiles are flipping
 let toastTimer: number | undefined;
 
@@ -44,7 +48,6 @@ function dailySeed(): string {
 }
 
 function newGame(): void {
-    // If the chosen length has no words in this language, fall back.
     const lengths = availableLengths(settings.language);
     if (!lengths.includes(settings.wordLength)) {
         settings.wordLength = lengths.includes(DEFAULT_WORD_LENGTH)
@@ -54,12 +57,18 @@ function newGame(): void {
 
     const pool = getWords(settings.language, settings.wordLength);
     game = new Game(settings, pool, settings.daily ? dailySeed() : undefined);
+    gameId++;
     busy = false;
+    hideResult(modalEl);
 
     drawControls();
     drawBoards();
     drawKeys();
     drawStatus();
+}
+
+function openResult(): void {
+    showResult(modalEl, game, newGame);
 }
 
 // ---------- input ----------
@@ -69,8 +78,16 @@ function handleKey(key: string): void {
 
     if (key === "Enter") {
         const result = game.submit();
-        if (result === "short") return toast("Too short");
-        if (result === "invalid") return toast("Not in word list");
+        if (result === "short") {
+            toast("Too short");
+            shake();
+            return;
+        }
+        if (result === "invalid") {
+            toast("Not in word list");
+            shake();
+            return;
+        }
         reveal();
         return;
     }
@@ -81,20 +98,68 @@ function handleKey(key: string): void {
 }
 
 function reveal(): void {
+    const id = gameId;
     const row = game.guesses.length - 1;
     busy = true;
     drawBoards(row);
-    // Update keyboard and status only after the flip animation finishes.
+
+    // After the flip finishes: update keyboard and status, bounce solved boards,
+    // and open the result modal if the game is over.
     window.setTimeout(() => {
+        if (id !== gameId) return; // a new game started in the meantime
         busy = false;
         drawKeys();
         drawStatus();
+
+        const solvedNow = bounce(row);
+        if (game.status !== "playing") {
+            window.setTimeout(() => {
+                if (id === gameId) openResult();
+            }, solvedNow ? 900 : 400);
+        }
     }, game.settings.wordLength * 120 + 500);
+}
+
+// Bounce the tiles of every board that was solved by this guess.
+function bounce(row: number): boolean {
+    let any = false;
+    game.solvedAt.forEach((solvedAt, b) => {
+        if (solvedAt !== row) return;
+        any = true;
+        const tiles = boardsEl.children[b]?.children[row]?.children;
+        if (!tiles) return;
+        Array.from(tiles).forEach((tile, i) => {
+            const el = tile as HTMLElement;
+            el.style.animationDelay = `${i * 80}ms`;
+            el.classList.add("bounce");
+        });
+    });
+    return any;
+}
+
+// Shake the row being typed in (on every active board).
+function shake(): void {
+    boardsEl.querySelectorAll<HTMLElement>(".row.current").forEach((row) => {
+        row.classList.remove("shake");
+        void row.offsetWidth; // forces a reflow so the animation can restart
+        row.classList.add("shake");
+    });
 }
 
 window.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if ((e.target as HTMLElement).tagName === "SELECT") return;
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === "SELECT") return;
+
+    if (isResultOpen(modalEl)) {
+        if (e.key === "Escape") hideResult(modalEl);
+        else if (e.key === "Enter" && tag !== "BUTTON") {
+            e.preventDefault();
+            newGame();
+        }
+        return;
+    }
+
     if (e.key === "Enter" || e.key === "Backspace" || /^[a-zA-Z]$/.test(e.key)) {
         e.preventDefault();
         handleKey(e.key);
@@ -110,18 +175,18 @@ function option(value: string, label: string, selected: boolean): string {
 function drawControls(): void {
     const lengths = availableLengths(settings.language);
     controlsEl.innerHTML = `
-    <select id="sel-lang">
+    <select id="sel-lang" aria-label="Language">
       ${option("en", "English", settings.language === "en")}
       ${option("af", "Afrikaans", settings.language === "af")}
     </select>
-    <select id="sel-mode">
+    <select id="sel-mode" aria-label="Mode">
       ${option("wordle", "Wordle", settings.mode === "wordle")}
       ${option("quordle", "Quordle", settings.mode === "quordle")}
     </select>
-    <select id="sel-len">
+    <select id="sel-len" aria-label="Word length">
       ${lengths.map((n) => option(String(n), `${n} letters`, n === settings.wordLength)).join("")}
     </select>
-    <select id="sel-play">
+    <select id="sel-play" aria-label="Play type">
       ${option("random", "Random", !settings.daily)}
       ${option("daily", "Daily", settings.daily)}
     </select>

@@ -2,7 +2,7 @@
 
 A minimal, dark-themed Wordle and Quordle clone in **English** and **Afrikaans**, with adjustable word length and unlimited replays.
 
-**Play it here: https://l0sttpro.github.io/wordle/**
+**Play it here: <https://l0sttpro.github.io/wordle/>**
 
 ## Features
 
@@ -39,7 +39,7 @@ npm install
 npm run dev
 ```
 
-Then open the URL Vite prints (usually http://localhost:5173).
+Then open the URL Vite prints (usually <http://localhost:5173>).
 
 To create a production build:
 

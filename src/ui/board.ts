@@ -23,10 +23,13 @@ function renderBoard(game: Game, b: number, revealRow: number): HTMLElement {
         const row = document.createElement("div");
         row.className = "row";
 
+
         // A board stops showing rows after the guess that solved it.
         const submitted = r < game.guesses.length && r <= (solvedAt ?? Infinity);
         const states = submitted ? evaluateGuess(game.guesses[r], game.targets[b]) : null;
         const isCurrentRow = isActive && r === game.guesses.length;
+
+        if (isCurrentRow) row.classList.add("current");
 
         for (let c = 0; c < len; c++) {
             const tile = document.createElement("div");
