@@ -2,7 +2,7 @@
 
 A minimal, dark-themed Wordle and Quordle clone in **English** and **Afrikaans**, with adjustable word length and unlimited replays.
 
-**Play it here: https://YOUR-USERNAME.github.io/wordle/**
+**Play it here: https://l0sttpro.github.io/wordle/**
 
 ## Features
 
