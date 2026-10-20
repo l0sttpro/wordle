@@ -27,12 +27,26 @@ const keysEl = document.querySelector<HTMLElement>("#keyboard")!;
 const toastEl = document.querySelector<HTMLElement>("#toast")!;
 const modalEl = document.querySelector<HTMLElement>("#modal")!;
 
+const STORAGE_KEY = "wordle-state-v1";
+
 const settings: Settings = {
     language: "en",
     mode: "wordle",
     wordLength: DEFAULT_WORD_LENGTH,
     daily: false,
 };
+
+interface SavedGameState {
+    seed?: string;
+    targets: string[];
+    guesses: string[];
+    current: string;
+}
+
+interface SavedState {
+    settings?: Partial<Settings>;
+    game?: SavedGameState;
+}
 
 let game: Game;
 let gameId = 0; // bumped on every new game so old timers can tell they are stale
@@ -47,7 +61,111 @@ function dailySeed(): string {
     return `${day}|${settings.language}|${settings.mode}|${settings.wordLength}`;
 }
 
-function newGame(): void {
+function isWord(value: string, len: number): boolean {
+    return /^[a-z]+$/.test(value) && value.length === len;
+}
+
+function computeSolvedAt(targets: string[], guesses: string[]): (number | null)[] {
+    return targets.map((target) => {
+        const guessAt = guesses.findIndex((guess) => guess === target);
+        return guessAt === -1 ? null : guessAt;
+    });
+}
+
+function loadSavedState(): SavedState | null {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        if (!parsed || typeof parsed !== "object") return null;
+
+        const out: SavedState = {};
+
+        const savedSettings = parsed.settings as Record<string, unknown> | undefined;
+        if (savedSettings && typeof savedSettings === "object") {
+            out.settings = {};
+            if (savedSettings.language === "en" || savedSettings.language === "af") {
+                out.settings.language = savedSettings.language;
+            }
+            if (savedSettings.mode === "wordle" || savedSettings.mode === "quordle") {
+                out.settings.mode = savedSettings.mode;
+            }
+            if (typeof savedSettings.wordLength === "number") {
+                out.settings.wordLength = savedSettings.wordLength;
+            }
+            if (typeof savedSettings.daily === "boolean") {
+                out.settings.daily = savedSettings.daily;
+            }
+        }
+
+        const savedGame = parsed.game as Record<string, unknown> | undefined;
+        if (
+            savedGame &&
+            typeof savedGame === "object" &&
+            Array.isArray(savedGame.targets) &&
+            Array.isArray(savedGame.guesses) &&
+            typeof savedGame.current === "string" &&
+            savedGame.targets.every((word) => typeof word === "string") &&
+            savedGame.guesses.every((word) => typeof word === "string") &&
+            (savedGame.seed === undefined || typeof savedGame.seed === "string")
+        ) {
+            out.game = {
+                seed: savedGame.seed as string | undefined,
+                targets: savedGame.targets as string[],
+                guesses: savedGame.guesses as string[],
+                current: savedGame.current
+            };
+        }
+
+        return out;
+    } catch {
+        return null;
+    }
+}
+
+function saveState(): void {
+    if (!game) return;
+    const state: SavedState = {
+        settings: { ...settings },
+        game: {
+            seed: settings.daily ? dailySeed() : undefined,
+            targets: [...game.targets],
+            guesses: [...game.guesses],
+            current: game.current
+        }
+    };
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+        // Storage unavailable or full: the game still works, it just won't be saved.
+    }
+}
+
+function restoreGame(
+    savedGame: SavedGameState,
+    seed: string | undefined,
+    answers: string[],
+    valid: Set<string>
+): boolean {
+    const len = settings.wordLength;
+    const answerSet = new Set(answers);
+
+    if (settings.daily && savedGame.seed !== seed) return false;
+    if (savedGame.targets.length !== game.boardCount) return false;
+    if (savedGame.guesses.length > game.maxGuesses) return false;
+    if (!savedGame.targets.every((word) => isWord(word, len) && answerSet.has(word))) return false;
+    if (!savedGame.guesses.every((word) => isWord(word, len))) return false;
+    if (!savedGame.guesses.every((word) => valid.has(word))) return false;
+    if (!/^[a-z]*$/.test(savedGame.current) || savedGame.current.length > len) return false;
+
+    game.targets.splice(0, game.targets.length, ...savedGame.targets);
+    game.guesses.push(...savedGame.guesses);
+    game.solvedAt.splice(0, game.solvedAt.length, ...computeSolvedAt(savedGame.targets, savedGame.guesses));
+    game.current = game.status === "playing" ? savedGame.current : "";
+    return true;
+}
+
+function newGame(savedGame?: SavedGameState): void {
     const lengths = availableLengths(settings.language);
     if (!lengths.includes(settings.wordLength)) {
         settings.wordLength = lengths.includes(DEFAULT_WORD_LENGTH)
@@ -56,7 +174,9 @@ function newGame(): void {
     }
 
     const pool = getWords(settings.language, settings.wordLength);
-    game = new Game(settings, pool, settings.daily ? dailySeed() : undefined);
+    const seed = settings.daily ? dailySeed() : undefined;
+    game = new Game(settings, pool, seed);
+    if (savedGame) restoreGame(savedGame, seed, pool.answers, pool.valid);
     gameId++;
     busy = false;
     hideResult(modalEl);
@@ -65,10 +185,11 @@ function newGame(): void {
     drawBoards();
     drawKeys();
     drawStatus();
+    saveState();
 }
 
 function openResult(): void {
-    showResult(modalEl, game, newGame);
+    showResult(modalEl, game, () => newGame());
 }
 
 // ---------- input ----------
@@ -88,6 +209,7 @@ function handleKey(key: string): void {
             shake();
             return;
         }
+        saveState();
         reveal();
         return;
     }
@@ -95,6 +217,7 @@ function handleKey(key: string): void {
     if (key === "Backspace") game.removeLetter();
     else game.addLetter(key.toLowerCase());
     drawBoards();
+    saveState();
 }
 
 function reveal(): void {
@@ -240,4 +363,6 @@ controlsEl.addEventListener("click", (e) => {
     }
 });
 
-newGame();
+const saved = loadSavedState();
+if (saved?.settings) Object.assign(settings, saved.settings);
+newGame(saved?.game);
