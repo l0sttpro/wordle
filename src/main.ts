@@ -134,7 +134,11 @@ function saveState(): void {
             current: game.current
         }
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+        // Storage unavailable or full: the game still works, it just won't be saved.
+    }
 }
 
 function restoreGame(
@@ -185,7 +189,7 @@ function newGame(savedGame?: SavedGameState): void {
 }
 
 function openResult(): void {
-    showResult(modalEl, game, newGame);
+    showResult(modalEl, game, () => newGame());
 }
 
 // ---------- input ----------
