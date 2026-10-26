@@ -31,7 +31,7 @@ const STORAGE_KEY = "wordle-state-v1";
 
 const settings: Settings = {
     language: "en",
-    mode: "wordle",
+    mode: "quordle",
     wordLength: DEFAULT_WORD_LENGTH,
     daily: false,
 };
