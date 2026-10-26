@@ -33,7 +33,7 @@ const settings: Settings = {
     language: "en",
     mode: "quordle",
     wordLength: DEFAULT_WORD_LENGTH,
-    daily: false,
+    daily: true,
 };
 
 interface SavedGameState {
