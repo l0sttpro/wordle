@@ -13,14 +13,8 @@ const COLORS: Record<TileState, string> = {
     absent: "var(--key-absent)",
 };
 
-// One vertical stripe per board, so quordle keys show all four states.
-function stripes(states: (TileState | undefined)[]): string {
-    const n = states.length;
-    const stops = states.map((s, i) => {
-        const color = s ? COLORS[s] : "var(--key)";
-        return `${color} ${(i * 100) / n}% ${((i + 1) * 100) / n}%`;
-    });
-    return `linear-gradient(to right, ${stops.join(", ")})`;
+function colorFor(state: TileState | undefined): string {
+    return state ? COLORS[state] : "var(--key)";
 }
 
 export function renderKeyboard(
@@ -38,11 +32,24 @@ export function renderKeyboard(
         for (const key of keys) {
             const btn = document.createElement("button");
             btn.className = "key";
-            btn.textContent = key === "Backspace" ? "⌫" : key;
             if (key.length > 1) btn.classList.add("wide");
 
+            const label = document.createElement("span");
+            label.className = "key-label";
+            label.textContent = key === "Backspace" ? "⌫" : key;
+            btn.append(label);
+
             const s = states[key];
-            if (s && s.some((x) => x !== undefined)) btn.style.background = stripes(s);
+            if (key.length === 1 && s && s.some((x) => x !== undefined)) {
+                if (s.length === 1) {
+                    btn.style.background = colorFor(s[0]);
+                } else {
+                    btn.classList.add("quadrants");
+                    for (let i = 0; i < 4; i++) {
+                        btn.style.setProperty(`--q${i}`, colorFor(s[i]));
+                    }
+                }
+            }
 
             btn.addEventListener("click", () => {
                 btn.blur();

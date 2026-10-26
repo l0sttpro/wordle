@@ -149,9 +149,30 @@ select:hover, #btn-new:hover { border-color: var(--border-filled); }
   font-weight: 600;
   text-transform: uppercase;
   cursor: pointer;
+  overflow: hidden;
 }
 .key.wide { flex: 1.6; max-width: 70px; font-size: 0.7rem; }
 .key:hover { filter: brightness(1.25); }
+
+.key-label {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Quordle: four per-board states arranged like the 2x2 board grid. */
+.key.quadrants {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--q0, var(--key)), var(--q0, var(--key))),
+    linear-gradient(var(--q1, var(--key)), var(--q1, var(--key))),
+    linear-gradient(var(--q2, var(--key)), var(--q2, var(--key))),
+    linear-gradient(var(--q3, var(--key)), var(--q3, var(--key)));
+  background-repeat: no-repeat;
+  background-position: left top, right top, left bottom, right bottom;
+  background-size: calc(50% - 1px) calc(50% - 1px);
+}
+.key.quadrants .key-label { text-shadow: 0 1px 2px var(--bg); }
 
 /* ---------- toast ---------- */
 
